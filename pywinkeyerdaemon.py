@@ -50,6 +50,12 @@ class Winkeyer(object):
     def send(self, msg):
         self.port.write(msg.upper())
 
+    def ptt(self, ptt):
+        if ptt:
+            self.port.write(chr(0x18) + chr(1))
+        else:
+            self.port.write(chr(0x18) + chr(0))
+
 
 class CwdaemonServer(SocketServer.BaseRequestHandler):
     """singleton cwdaemon using a singleton winkeyer"""
@@ -97,14 +103,37 @@ class CwdaemonServer(SocketServer.BaseRequestHandler):
             elif data[1] == '9':
                 printdbg("Warning:  obsolete cwdaemon command.")
             elif data[1] == 'a':
-                printdbg("Warning:  'ptt keying off or on' not implemented.")
+                ptt = data[2:]
+                if ptt not in ("0", "1"):
+                    printdbg(
+                        "Warning:  "
+                        "unsupported value for 'ptt keying off or on'")
+                else:
+                    if get_delay() == 0:
+                        printdbg("Cannot set PTT.  PTT disabled by delay = 0.")
+                    else:
+                        if ptt == "0":
+                            if get_ptt():
+                                winkeyer.ptt(False)
+                                set_ptt(False)
+                        else:
+                            if not get_ptt():
+                                winkeyer.ptt(True)
+                                set_ptt(True)
             elif data[1] == 'b':
                 printdbg("Warning:  'ssb signal from microphone or soundcard'"
                          " not implemented.")
             elif data[1] == 'c':
                 printdbg("Warning:  'tune x seconds long' not implemented.")
             elif data[1] == 'd':
-                printdbg("Warning:  'ptt on delay' not implemented.")
+                # TODO:  implement range check.  CW daemon uses 0 to 50 and
+                #        truncates into range.
+                # TODO:  use value for more than enable/disable PTT.
+                #        Probably round and use for winkeyer lead in time.
+                delay = data[2:]
+                printdbg("set delay:  {}".format(delay))
+                set_delay(int(delay))
+                printdbg("delay set to:  {:d}".format(get_delay()))
             elif data[1] == 'e':
                 printdbg("Warning:  'bandindex' not implemented.")
             elif data[1] == 'f':
@@ -149,6 +178,25 @@ if __name__ == "__main__":
     def printdbg(s):
         if debug:
             print(s)
+
+    state_delay = 0
+    state_ptt = False
+
+    def set_delay(delay):
+        global state_delay
+        state_delay = delay
+
+    def get_delay():
+        global state_delay
+        return state_delay
+
+    def set_ptt(ptt):
+        global state_ptt
+        state_ptt = ptt
+
+    def get_ptt():
+        global state_ptt
+        return state_ptt
 
     accept_remote = args.accept_remote_hosts
     if accept_remote:
