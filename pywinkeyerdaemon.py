@@ -15,6 +15,7 @@ See https://github.com/drewarnett/pywinkeyerdaemon for even more information.
 
 import SocketServer
 import argparse
+import atexit
 
 import serial
 
@@ -30,15 +31,30 @@ class Winkeyer(object):
     methods are specific to use as a cwdaemon
     """
 
+    SUPPORTED_VERSIONS = (23, 30)
+
     def __init__(self, serial_device=None):
         self.port = serial.Serial(serial_device, 1200)
         self.host_open()
 
     def host_open(self):
+        self.host_close()
+        self.port.flushInput()
+        self.port.setTimeout(1)
         self.port.write(chr(0x0) + chr(0x2))
-        v = ord(self.port.read(1))
-        printdbg("host_open returned:  " + str(v))
-        assert v == 23
+        version = ord(self.port.read(1))
+        printdbg("host_open returned:  " + str(version))
+        assert version in self.SUPPORTED_VERSIONS, version
+        self.port.setTimeout(0.1)
+
+        test_char = 'A'
+        self.port.write(chr(0x0) + chr(0x4) + test_char)
+        assert self.port.read(1) == test_char
+
+        atexit.register(self.host_close)
+
+    def host_close(self):
+        self.port.write(chr(0x0) + chr(0x3))
 
     def setspeed(self, speed):
         assert(0 <= speed <= 99)
