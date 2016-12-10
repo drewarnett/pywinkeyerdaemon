@@ -72,6 +72,12 @@ class Winkeyer(object):
         else:
             self.port.write(chr(0x18) + chr(0))
 
+    def sidetoneenable(self, enable):
+        if enable:
+            self.port.write(chr(0x09) + chr(0b0110))
+        else:
+            self.port.write(chr(0x09) + chr(0b0100))
+
 
 class CwdaemonServer(SocketServer.BaseRequestHandler):
     """singleton cwdaemon using a singleton winkeyer"""
@@ -187,6 +193,10 @@ if __name__ == "__main__":
     parser.add_argument("--debug",
                         help="print debug statements to standard output",
                         action="store_true")
+    parser.add_argument("--sidetoneon",
+                        help="start with sidetone on (default off)",
+                        action="store_true")
+
     args = parser.parse_args()
 
     debug = args.debug
@@ -218,6 +228,7 @@ if __name__ == "__main__":
     if accept_remote:
         print("Warning:  listening to nonlocal hosts as well as localhost.")
     winkeyer = Winkeyer(args.device)
+    winkeyer.sidetoneenable(args.sidetoneon)
     server = SocketServer.UDPServer(
         (_LOCALHOST_ADDRESS, args.port), CwdaemonServer)
     server.serve_forever()
