@@ -10,13 +10,15 @@ Project page:
 
 use
 ---
-Serveral ways to invoke:
+Serveral ways to invoke.
 
-    python pywinkeyerdaemon [arguments...]
+On unix:
+
+    python pywinkeyerdaemon.py [arguments...]
 
 or on unix if permissions to run have been setup:
 
-    pywinkeyerdaemon [arguments...]
+    pywinkeyerdaemon.py [arguments...]
 
 or on MS-Windows if file name extension has been mapped to Python:
 
@@ -33,8 +35,8 @@ I currently use:
 
 prerequisites
 -------------
-python3 [tested with 3.7.3] or python2 [tested with 2.7.16]
-pyserial [tested with 3.4]
+* python3 [tested with 3.7.3] or python2 [tested with 2.7.16]
+* pyserial [tested with 3.4]
 
 
 history
@@ -55,7 +57,7 @@ However, it works fine for my simple use case with TLF.  Feel free to submit
 feature requests and bug reports.
 
 Only a subset of the cwdaemon protocol has been implemented.  And, only a
-subset of thw winkeyer protocol has been utilized.
+subset of the winkeyer protocol has been utilized.
 
 Some debugging features have been included.  These can identify features client
 programs may be able to use that have not been implemented, yet.  And, they
@@ -100,4 +102,4 @@ These references may all be found on the web.
   serial devices
 
 
-Drew Arnett, kb9fko
+Drew Arnett, n7da
