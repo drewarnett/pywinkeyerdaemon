@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 """
 pywinkeyerdaemon
@@ -12,6 +12,8 @@ See README.md for more information.
 
 See https://github.com/drewarnett/pywinkeyerdaemon for even more information.
 """
+
+from __future__ import print_function
 
 import SocketServer
 import argparse
@@ -40,12 +42,12 @@ class Winkeyer(object):
     def host_open(self):
         self.host_close()
         self.port.flushInput()
-        self.port.setTimeout(1)
+        self.port.timeout = 1
         self.port.write(chr(0x0) + chr(0x2))
         version = ord(self.port.read(1))
         printdbg("host_open returned:  " + str(version))
         assert version in self.SUPPORTED_VERSIONS, version
-        self.port.setTimeout(0.1)
+        self.port.timeout = 0.1
 
         test_char = 'A'
         self.port.write(chr(0x0) + chr(0x4) + test_char)
@@ -57,7 +59,7 @@ class Winkeyer(object):
         self.port.write(chr(0x0) + chr(0x3))
 
     def setspeed(self, speed):
-        assert(0 <= speed <= 99)
+        assert 0 <= speed <= 99
         self.port.write(chr(0x2) + chr(speed))
 
     def abort(self):
@@ -77,6 +79,29 @@ class Winkeyer(object):
             self.port.write(chr(0x09) + chr(0b0110))
         else:
             self.port.write(chr(0x09) + chr(0b0100))
+
+
+def _expand_cwdaemon_prosigns_for_winkeyer(s):
+    """returns string with cwdaemon prosigns expanded for winkeyer"""
+
+    MERGE_LETTERS = "\x1b"
+    TABLE = {
+        '*':  "AR",
+        '=':  "BT",
+        '<':  "SK",
+        '(':  "KN",
+        '!':  "SN",
+        '&':  "AS",
+        '>':  "BK"
+        }
+
+    rval = ""
+    for c in s:
+        if c in TABLE:
+            rval += MERGE_LETTERS + TABLE[c]
+        else:
+            rval += c
+    return rval
 
 
 class CwdaemonServer(SocketServer.BaseRequestHandler):
@@ -169,12 +194,17 @@ class CwdaemonServer(SocketServer.BaseRequestHandler):
             printdbg("client message to send length:  {}".format(
                 len(data)))
             printdbg("client message content:  {}".format(",".join(
-                map(lambda x: str(ord(x)), data)
+                [str(ord(x)) for x in data]
             )))
             stripped_data = data.strip()
             if stripped_data != data:
                 printdbg("Warning:  string.strip() removed something.")
-            winkeyer.send(stripped_data)
+            winkeyer_data = _expand_cwdaemon_prosigns_for_winkeyer(
+                stripped_data)
+            if winkeyer_data != stripped_data:
+                printdbg("cwdaemon prosigns expanded/translated")
+            winkeyer.send(winkeyer_data)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

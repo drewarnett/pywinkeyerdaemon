@@ -61,13 +61,27 @@ Some debugging features have been included.  These can identify features client
 programs may be able to use that have not been implemented, yet.  And, they
 can be used to identify variations in how client programs talk to cwdaemon.
 
+prosigns
+--------
+Not always a 1:1 mapping available, so will use the buffered merge characters
+command to build the prosigns for winkeyer.  Per cwdaemon docs these are:
+
+| character | prosign |
+|-----------|---------|
+| `*`       | AR      |
+| `=`       | BT      |
+| `<`       | SK      |
+| `(`       | KN      |
+| `!`       | SN      |
+| `&`       | AS      |
+| `>'       | BK      |
+
 
 TODOs
 -----
 * python3
 
-* review character set & prosigns between cwdaemon and winkeyer and implement
-  translation if necessary
+* add inline + and - speed change handling
 
 * consider adding null device as in cwdaemon
 
