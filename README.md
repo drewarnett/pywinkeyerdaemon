@@ -81,7 +81,8 @@ command to build the prosigns for winkeyer.  Per cwdaemon docs these are:
 
 TODOs
 -----
-* add inline + and - speed change handling
+* detect and filter characters not explicitly supported by cwdaemon protocol
+    * winkeyer will ignore some but not all of these
 
 * consider adding null device as in cwdaemon
 

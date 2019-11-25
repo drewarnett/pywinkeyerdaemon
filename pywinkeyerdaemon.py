@@ -133,6 +133,7 @@ class CwdaemonServer(socketserver.BaseRequestHandler):
             elif data[1] == '2':
                 speed = data[2:]
                 printdbg("set speed:  {}".format(speed))
+                set_speed(int(speed))
                 winkeyer.setspeed(int(speed))
             elif data[1] == '3':
                 tone = data[2:]
@@ -202,9 +203,46 @@ class CwdaemonServer(socketserver.BaseRequestHandler):
             stripped_data = data.strip()
             if stripped_data != data:
                 printdbg("Warning:  string.strip() removed something.")
+
+            CANCEL_BUFFERED_SPEED_CHANGE = "\x1e"
+            BUFFERED_SPEED_CHANGE = "\x1c"
+            MIN_SPEED, MAX_SPEED = 5, 99
+            in_message_speed_command = False
+            speed_message_data = ""
+            speed = orig_speed = get_speed()
+            for nextchar in stripped_data:
+                if nextchar == '+':
+                    in_message_speed_command = True
+                    if speed:
+                        if speed > MAX_SPEED - 2:
+                            speed = MAX_SPEED
+                        else:
+                            speed += 2
+                        speed_message_data += (
+                            BUFFERED_SPEED_CHANGE + chr(speed))
+                elif nextchar == '-':
+                    in_message_speed_command = True
+                    if speed:
+                        if speed < MIN_SPEED + 2:
+                            speed = MIN_SPEED
+                        else:
+                            speed -= 2
+                        speed_message_data += (
+                            BUFFERED_SPEED_CHANGE + chr(speed))
+                else:
+                    speed_message_data += nextchar
+            if in_message_speed_command:
+                printdbg(
+                    "cwdaemon in message +/- expanded/translated")
+                if not speed:
+                    printdbg("    but speed hasn't been set, yet, so NOP")
+                speed_message_data += CANCEL_BUFFERED_SPEED_CHANGE
+                if speed != orig_speed:
+                    set_speed(orig_speed)
+
             winkeyer_data = _expand_cwdaemon_prosigns_for_winkeyer(
-                stripped_data)
-            if winkeyer_data != stripped_data:
+                speed_message_data)
+            if winkeyer_data != speed_message_data:
                 printdbg("cwdaemon prosigns expanded/translated")
             winkeyer.send(winkeyer_data)
 
@@ -240,6 +278,7 @@ if __name__ == "__main__":
 
     state_delay = 0
     state_ptt = False
+    state_speed = 0
 
     def set_delay(delay):
         global state_delay
@@ -256,6 +295,14 @@ if __name__ == "__main__":
     def get_ptt():
         global state_ptt
         return state_ptt
+
+    def set_speed(speed):
+        global state_speed
+        state_speed = speed
+
+    def get_speed():
+        global state_speed
+        return state_speed
 
     accept_remote = args.accept_remote_hosts
     if accept_remote:
