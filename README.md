@@ -33,8 +33,8 @@ I currently use:
 
 prerequisites
 -------------
-python 2.7.x [tested with 2.7.9]
-pyserial [tested with 2.6.1]
+python3 [tested with 3.7.3] or python2 [tested with 2.7.16]
+pyserial [tested with 3.4]
 
 
 history
@@ -79,8 +79,6 @@ command to build the prosigns for winkeyer.  Per cwdaemon docs these are:
 
 TODOs
 -----
-* python3
-
 * add inline + and - speed change handling
 
 * consider adding null device as in cwdaemon

@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 
 """
 pywinkeyerdaemon
@@ -15,7 +15,10 @@ See https://github.com/drewarnett/pywinkeyerdaemon for even more information.
 
 from __future__ import print_function
 
-import SocketServer
+try:
+    import socketserver
+except ImportError:
+    import SocketServer as socketserver
 import argparse
 import atexit
 
@@ -43,42 +46,42 @@ class Winkeyer(object):
         self.host_close()
         self.port.flushInput()
         self.port.timeout = 1
-        self.port.write(chr(0x0) + chr(0x2))
-        version = ord(self.port.read(1))
+        self.port.write((chr(0x0) + chr(0x2)).encode())
+        version = ord(self.port.read(1).decode())
         printdbg("host_open returned:  " + str(version))
         assert version in self.SUPPORTED_VERSIONS, version
         self.port.timeout = 0.1
 
         test_char = 'A'
-        self.port.write(chr(0x0) + chr(0x4) + test_char)
-        assert self.port.read(1) == test_char
+        self.port.write((chr(0x0) + chr(0x4) + test_char).encode())
+        assert self.port.read(1).decode() == test_char
 
         atexit.register(self.host_close)
 
     def host_close(self):
-        self.port.write(chr(0x0) + chr(0x3))
+        self.port.write((chr(0x0) + chr(0x3)).encode())
 
     def setspeed(self, speed):
         assert 0 <= speed <= 99
-        self.port.write(chr(0x2) + chr(speed))
+        self.port.write((chr(0x2) + chr(speed)).encode())
 
     def abort(self):
-        self.port.write(chr(0xa))
+        self.port.write(chr(0xa).encode())
 
     def send(self, msg):
-        self.port.write(msg.upper())
+        self.port.write(msg.upper().encode())
 
     def ptt(self, ptt):
         if ptt:
-            self.port.write(chr(0x18) + chr(1))
+            self.port.write((chr(0x18) + chr(1)).encode())
         else:
-            self.port.write(chr(0x18) + chr(0))
+            self.port.write((chr(0x18) + chr(0)).encode())
 
     def sidetoneenable(self, enable):
         if enable:
-            self.port.write(chr(0x09) + chr(0b0110))
+            self.port.write((chr(0x09) + chr(0b0110)).encode())
         else:
-            self.port.write(chr(0x09) + chr(0b0100))
+            self.port.write((chr(0x09) + chr(0b0100)).encode())
 
 
 def _expand_cwdaemon_prosigns_for_winkeyer(s):
@@ -104,7 +107,7 @@ def _expand_cwdaemon_prosigns_for_winkeyer(s):
     return rval
 
 
-class CwdaemonServer(SocketServer.BaseRequestHandler):
+class CwdaemonServer(socketserver.BaseRequestHandler):
     """singleton cwdaemon using a singleton winkeyer"""
 
     def verify_request(self, request, client_address):
@@ -116,7 +119,7 @@ class CwdaemonServer(SocketServer.BaseRequestHandler):
             return False
 
     def handle(self):
-        data = self.request[0]
+        data = self.request[0].decode()
 
         # NOTE:  some clients send more data than required!
 
@@ -259,7 +262,7 @@ if __name__ == "__main__":
         print("Warning:  listening to nonlocal hosts as well as localhost.")
     winkeyer = Winkeyer(args.device)
     winkeyer.sidetoneenable(args.sidetoneon)
-    server = SocketServer.UDPServer(
+    server = socketserver.UDPServer(
         (_LOCALHOST_ADDRESS, args.port), CwdaemonServer)
     server.serve_forever()
 
