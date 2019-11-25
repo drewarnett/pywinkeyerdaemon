@@ -74,7 +74,7 @@ command to build the prosigns for winkeyer.  Per cwdaemon docs these are:
 | `(`       | KN      |
 | `!`       | SN      |
 | `&`       | AS      |
-| `>'       | BK      |
+| `>`       | BK      |
 
 
 TODOs
