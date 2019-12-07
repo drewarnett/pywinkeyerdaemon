@@ -15,6 +15,8 @@ See https://github.com/drewarnett/pywinkeyerdaemon for even more information.
 
 from __future__ import print_function
 
+import string
+
 try:
     import socketserver
 except ImportError:
@@ -119,6 +121,9 @@ class CwdaemonServer(socketserver.BaseRequestHandler):
             return False
 
     def handle(self):
+
+        WHITESPACE_TO_STRIP = string.whitespace.replace(' ', '')
+
         data = self.request[0].decode()
 
         # NOTE:  some clients send more data than required!
@@ -194,57 +199,57 @@ class CwdaemonServer(socketserver.BaseRequestHandler):
             elif data[1] == 'h':
                 printdbg("Warning:  'echo when done' not implemented.")
         else:
-            printdbg("client message to send:  {}".format(data))
-            printdbg("client message to send length:  {}".format(
-                len(data)))
-            printdbg("client message content:  {}".format(",".join(
-                [str(ord(x)) for x in data]
-            )))
-            stripped_data = data.strip()
-            if stripped_data != data:
-                printdbg("Warning:  string.strip() removed something.")
+            printdbg("message:  {}".format(repr(data)))
+            if data.rstrip(WHITESPACE_TO_STRIP) != data:
+                printdbg(
+                    "message trailing whitespace (not including ' ') removed")
+                data = data.rstrip(WHITESPACE_TO_STRIP)
+            printdbg("message:  {}".format(repr(data)))
+
+            winkeyer_data = _expand_cwdaemon_prosigns_for_winkeyer(data)
+            if winkeyer_data != data:
+                data = winkeyer_data
+                printdbg("prosigns expanded")
+                printdbg("message:  {}".format(repr(data)))
 
             CANCEL_BUFFERED_SPEED_CHANGE = "\x1e"
             BUFFERED_SPEED_CHANGE = "\x1c"
             MIN_SPEED, MAX_SPEED = 5, 99
-            in_message_speed_command = False
             speed_message_data = ""
             speed = orig_speed = get_speed()
-            for nextchar in stripped_data:
-                if nextchar == '+':
-                    in_message_speed_command = True
-                    if speed:
-                        if speed > MAX_SPEED - 2:
-                            speed = MAX_SPEED
-                        else:
-                            speed += 2
-                        speed_message_data += (
-                            BUFFERED_SPEED_CHANGE + chr(speed))
-                elif nextchar == '-':
-                    in_message_speed_command = True
-                    if speed:
-                        if speed < MIN_SPEED + 2:
-                            speed = MIN_SPEED
-                        else:
-                            speed -= 2
-                        speed_message_data += (
-                            BUFFERED_SPEED_CHANGE + chr(speed))
+            if '+' in data or '-' in data:
+                for nextchar in data:
+                    if nextchar == '+':
+                        if speed:
+                            if speed > MAX_SPEED - 2:
+                                speed = MAX_SPEED
+                            else:
+                                speed += 2
+                            speed_message_data += (
+                                BUFFERED_SPEED_CHANGE + chr(speed))
+                    elif nextchar == '-':
+                        if speed:
+                            if speed < MIN_SPEED + 2:
+                                speed = MIN_SPEED
+                            else:
+                                speed -= 2
+                            speed_message_data += (
+                                BUFFERED_SPEED_CHANGE + chr(speed))
+                    else:
+                        speed_message_data += nextchar
+                if speed:
+                    # messages won't leave speed modified
+                    speed = orig_speed
+                    speed_message_data += CANCEL_BUFFERED_SPEED_CHANGE
+                    printdbg("cwdaemon +/- speed controls expanded/translated")
                 else:
-                    speed_message_data += nextchar
-            if in_message_speed_command:
-                printdbg(
-                    "cwdaemon in message +/- expanded/translated")
-                if not speed:
-                    printdbg("    but speed hasn't been set, yet, so NOP")
-                speed_message_data += CANCEL_BUFFERED_SPEED_CHANGE
-                if speed != orig_speed:
-                    set_speed(orig_speed)
+                    printdbg(
+                        "speed not set, yet,"
+                        " so cwdaemon +/- speed controls ignored")
+                data = speed_message_data
+                printdbg("message:  {}".format(repr(data)))
 
-            winkeyer_data = _expand_cwdaemon_prosigns_for_winkeyer(
-                speed_message_data)
-            if winkeyer_data != speed_message_data:
-                printdbg("cwdaemon prosigns expanded/translated")
-            winkeyer.send(winkeyer_data)
+            winkeyer.send(data)
 
 
 if __name__ == "__main__":
