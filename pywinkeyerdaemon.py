@@ -73,6 +73,18 @@ class Winkeyer(object):
     def send(self, msg):
         self.port.write(msg.upper().encode())
 
+    def tune(self, seconds):
+        """key down for given seconds
+
+        Anything buffered is aborted.
+        """
+
+        assert isinstance(seconds, int), type(seconds)
+        assert 0 <= seconds <= 99, seconds
+
+        self.abort()
+        self.port.write((chr(0x19) + chr(seconds)).encode())
+
     def ptt(self, ptt):
         if ptt:
             self.port.write((chr(0x18) + chr(1)).encode())
@@ -180,7 +192,21 @@ class CwdaemonServer(socketserver.BaseRequestHandler):
                 printdbg("Warning:  'ssb signal from microphone or soundcard'"
                          " not implemented.")
             elif data[1] == 'c':
-                printdbg("Warning:  'tune x seconds long' not implemented.")
+                seconds = int(data[2:])
+                if 0 <= seconds <= 99:
+                    if seconds:
+                        printdbg("tune for {} seconds".format(seconds))
+                        if seconds > 10:
+                            printdbg(
+                                "allowing longer tune than cwdaemon's"
+                                " 10 second max")
+                        winkeyer.tune(seconds)
+                    else:
+                        printdbg("tune for 0 seconds ignored")
+                else:
+                    printdbg(
+                        "tune for {} seconds out of range"
+                        " 0 to 99 seconds".format(seconds))
             elif data[1] == 'd':
                 # TODO:  implement range check.  CW daemon uses 0 to 50 and
                 #        truncates into range.
