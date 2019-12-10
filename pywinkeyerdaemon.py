@@ -53,11 +53,6 @@ class Winkeyer(object):
         printdbg("host_open returned:  " + str(version))
         assert version in self.SUPPORTED_VERSIONS, version
         self.port.timeout = 0.1
-
-        test_char = 'A'
-        self.port.write((chr(0x0) + chr(0x4) + test_char).encode())
-        assert self.port.read(1).decode() == test_char
-
         atexit.register(self.host_close)
 
     def host_close(self):
