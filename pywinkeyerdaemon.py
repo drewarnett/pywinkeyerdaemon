@@ -26,6 +26,41 @@ _DEFAULT_PORT = 6789
 
 ESC = chr(27)
 
+WK_SIDETONE_CODES = {
+    4000:  0x1,
+    2000:  0x2,
+    1333:  0x3,
+    1000:  0x4,
+    800:  0x5,
+    666:  0x6,
+    571:  0x7,
+    500:  0x8,
+    444:  0x9,
+    400:  0xa}
+
+WK_SIDETONE_FREQUENCIES = tuple(sorted(WK_SIDETONE_CODES))
+
+
+def wk_sidetone_code(freq):
+    assert isinstance(freq, int), (type(freq), freq)
+    chosen_freq = None
+    min_freq = min(WK_SIDETONE_FREQUENCIES)
+    max_freq = max(WK_SIDETONE_FREQUENCIES)
+    if freq <= min_freq:
+        chosen_freq = min_freq
+    elif freq >= max_freq:
+        chosen_freq = max_freq
+    else:
+        for i, current_freq in enumerate(WK_SIDETONE_FREQUENCIES[:-1]):
+            next_freq = WK_SIDETONE_FREQUENCIES[i + 1]
+            if freq < next_freq:
+                if freq - current_freq < next_freq - freq:
+                    chosen_freq = current_freq
+                else:
+                    chosen_freq = next_freq
+                break
+    return WK_SIDETONE_CODES[chosen_freq]
+
 
 class WinKeyer():
     """singleton handler for a WinKeyer
@@ -91,6 +126,15 @@ class WinKeyer():
             self.port.write((chr(0x09) + chr(0b0110)).encode())
         else:
             self.port.write((chr(0x09) + chr(0b0100)).encode())
+
+    def set_sidetone_frequency(self, frequency):
+        """set sidetone to nearest frequency supported by WinKeyer
+
+        frequency:  int (Hz)
+        """
+
+        code = wk_sidetone_code(frequency)
+        self.port.write((chr(0x01) + chr(code)).encode())
 
 
 def _expand_cwdaemon_prosigns_for_winkeyer(s):
