@@ -333,5 +333,3 @@ if __name__ == "__main__":
     server = socketserver.UDPServer(
         (_LOCALHOST_ADDRESS, args.port), CwdaemonServer)
     server.serve_forever()
-
-# vim: ts=4 sw=4 expandtab
