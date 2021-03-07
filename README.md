@@ -125,6 +125,11 @@ command to build the prosigns for WinKeyer.  Per cwdaemon docs these are:
 * add debugging function to report on all commands received
 
 
+## Thanks to:
+
+* Jeno Vago, HA5SE, for ideas and asking for features and trying things out.
+
+
 ## references
 
 These references may all be found on the web.
