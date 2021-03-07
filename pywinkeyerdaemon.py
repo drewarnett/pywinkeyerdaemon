@@ -68,7 +68,7 @@ class WinKeyer():
     methods are specific to use as a cwdaemon
     """
 
-    SUPPORTED_VERSIONS = (23, 30)
+    SUPPORTED_VERSIONS = (23, 30, 31)
 
     def __init__(self, serial_device=None, debug=False):
         self._debug = debug
