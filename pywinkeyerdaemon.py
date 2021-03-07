@@ -346,25 +346,32 @@ class CwdaemonServerDebug(CwdaemonServer):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-p", "--port", nargs="?",
-                        help="network port to listen (default {})".format(
-                            _DEFAULT_PORT),
-                        type=int, default=_DEFAULT_PORT)
-    parser.add_argument("-d", "--device", nargs="?",
-                        help="device file on unix, ex. /dev/ttyS0,"
-                        " and device name on MS-Windows, ex. COM1",
-                        type=str)
-    parser.add_argument("--accept-remote-hosts",
-                        help="respond to requests from hosts other than"
-                             " localhost",
-                        action="store_true")
-    parser.add_argument("--debug",
-                        help="print debug statements to standard output",
-                        action="store_true")
-    parser.add_argument("--sidetoneon",
-                        help="start with sidetone on (default off)",
-                        action="store_true")
-
+    parser.add_argument(
+        "-d", "--device", nargs="?",
+        help="device file on unix, ex. /dev/ttyS0, and device name on"
+             " MS-Windows, ex. COM1",
+        type=str, required=True)
+    parser.add_argument(
+        "-p", "--port", nargs="?",
+        help="network port to listen (default {})".format(_DEFAULT_PORT),
+        type=int, default=_DEFAULT_PORT)
+    parser.add_argument(
+        "--accept-remote-hosts",
+        help="respond to requests from hosts other than localhost",
+        action="store_true")
+    sidetone_group = parser.add_mutually_exclusive_group()
+    sidetone_group.add_argument(
+        "--sidetoneon",
+        help="start with sidetone on (default off) using default frequency",
+        action="store_true")
+    sidetone_group.add_argument(
+        "--sidetone",
+        help="start with sidetone on (default off) using given frequency",
+        type=int)
+    parser.add_argument(
+        "--debug",
+        help="print debug statements to standard output",
+        action="store_true")
     args = parser.parse_args()
 
     state_delay = 0
@@ -399,7 +406,11 @@ if __name__ == "__main__":
     if accept_remote:
         print("Warning:  listening to nonlocal hosts as well as localhost.")
     winkeyer = WinKeyer(args.device, debug=args.debug)
-    winkeyer.sidetoneenable(args.sidetoneon)
+    if args.sidetone is not None:
+        winkeyer.set_sidetone_frequency(args.sidetone)
+        winkeyer.sidetoneenable(True)
+    else:
+        winkeyer.sidetoneenable(args.sidetoneon)
     server_type = CwdaemonServerDebug if args.debug else CwdaemonServer
     server = socketserver.UDPServer(
         (_LOCALHOST_ADDRESS, args.port), server_type)
