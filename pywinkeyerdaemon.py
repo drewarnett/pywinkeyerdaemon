@@ -138,14 +138,14 @@ class WinKeyer():
 
     def set_mode(
             self,
-            swapped=False,
+            swap=False,
             keying_mode='B',
             contest_spacing=False,
             autospace=False,
             ):
         """set WinkyerMode register which packs a number of things
 
-        swapped:  swap paddles (bool, default False)
+        swap:  swap paddles (swap di and dah) (bool, default False)
 
         keying mode:  'B' (default), 'A', 'U' (ultimatic), or 'B' (bug)
 
@@ -160,7 +160,7 @@ class WinKeyer():
             'ultimatic':  0b10,
             'bug':  0b11}
 
-        assert isinstance(swapped, bool), (type(swapped), swapped)
+        assert isinstance(swap, bool), (type(swap), swap)
         assert keying_mode in KEYING_CODES, keying_mode
         assert isinstance(contest_spacing, bool), (
             type(contest_spacing), contest_spacing)
@@ -168,7 +168,7 @@ class WinKeyer():
 
         data = (
             ((KEYING_CODES[keying_mode] & 0b11) << 4)
-            | ((int(swapped) & 0b1) << 3)
+            | ((int(swap) & 0b1) << 3)
             | ((int(autospace) & 0b1) << 1)
             | ((int(contest_spacing) & 0b1) << 0)
             )
@@ -407,6 +407,10 @@ if __name__ == "__main__":
         help="start with sidetone on (default off) using given frequency",
         type=int)
     parser.add_argument(
+        "--swap",
+        help="swap paddles (swap di and dah)",
+        action="store_true")
+    parser.add_argument(
         "--debug",
         help="print debug statements to standard output",
         action="store_true")
@@ -449,6 +453,7 @@ if __name__ == "__main__":
         winkeyer.sidetoneenable(True)
     else:
         winkeyer.sidetoneenable(args.sidetoneon)
+    winkeyer.set_mode(swap=args.swap)
     server_type = CwdaemonServerDebug if args.debug else CwdaemonServer
     server = socketserver.UDPServer(
         (_LOCALHOST_ADDRESS, args.port), server_type)
