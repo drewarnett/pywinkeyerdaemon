@@ -27,8 +27,8 @@ _DEFAULT_PORT = 6789
 ESC = chr(27)
 
 
-class Winkeyer():
-    """singleton handler for a winkeyer
+class WinKeyer():
+    """singleton handler for a WinKeyer
 
     methods are specific to use as a cwdaemon
     """
@@ -328,7 +328,7 @@ if __name__ == "__main__":
     accept_remote = args.accept_remote_hosts
     if accept_remote:
         print("Warning:  listening to nonlocal hosts as well as localhost.")
-    winkeyer = Winkeyer(args.device)
+    winkeyer = WinKeyer(args.device)
     winkeyer.sidetoneenable(args.sidetoneon)
     server = socketserver.UDPServer(
         (_LOCALHOST_ADDRESS, args.port), CwdaemonServer)
