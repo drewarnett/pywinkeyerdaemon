@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 pywinkeyerdaemon
@@ -13,18 +13,13 @@ See README.md for more information.
 See https://github.com/drewarnett/pywinkeyerdaemon for even more information.
 """
 
-from __future__ import print_function
-
 import string
-
-try:
-    import socketserver
-except ImportError:
-    import SocketServer as socketserver
+import socketserver
 import argparse
 import atexit
 
 import serial
+
 
 _LOCALHOST_ADDRESS = "127.0.0.1"
 _DEFAULT_PORT = 6789
@@ -32,7 +27,7 @@ _DEFAULT_PORT = 6789
 ESC = chr(27)
 
 
-class Winkeyer(object):
+class Winkeyer():
     """singleton handler for a winkeyer
 
     methods are specific to use as a cwdaemon
