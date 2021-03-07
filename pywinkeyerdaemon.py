@@ -201,6 +201,15 @@ class CwdaemonServer(socketserver.BaseRequestHandler):
                 tone = data[2:]
                 self.printdbg("set tone:  {}".format(tone))
                 self.printdbg(data[2:])
+                if (tone < 300 or tone > 1000):
+                    self.printdbg('cwdaemon docs say 300 to 100 Hz')
+                    self.printdbg('    but unixcw defines actual range')
+                tone = int(tone)
+                if tone == 0:
+                    winkeyer.sidetoneenable(False)
+                else:
+                    winkeyer.set_sidetone_frequency(tone)
+                    winkeyer.sidetoneenable(True)
             elif data[1] == '4':
                 self.printdbg("abort message")
                 winkeyer.abort()
