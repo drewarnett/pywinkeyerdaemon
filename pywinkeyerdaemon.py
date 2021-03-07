@@ -395,7 +395,8 @@ if __name__ == "__main__":
         type=int, default=_DEFAULT_PORT)
     parser.add_argument(
         "--accept-remote-hosts",
-        help="respond to requests from hosts other than localhost",
+        help="respond to requests from hosts other than localhost (default"
+             " localhost only)",
         action="store_true")
     sidetone_group = parser.add_mutually_exclusive_group()
     sidetone_group.add_argument(
@@ -408,7 +409,15 @@ if __name__ == "__main__":
         type=int)
     parser.add_argument(
         "--swap",
-        help="swap paddles (swap di and dah)",
+        help="swap paddles (swap di and dah) (default off)",
+        action="store_true")
+    parser.add_argument(
+        "--contest_spacing",
+        help="use contest spacing (6 dit wordspace, defaul 7)",
+        action="store_true")
+    parser.add_argument(
+        "--autospace",
+        help="use autospace paddle sending (default off)",
         action="store_true")
     parser.add_argument(
         "--debug",
@@ -453,7 +462,10 @@ if __name__ == "__main__":
         winkeyer.sidetoneenable(True)
     else:
         winkeyer.sidetoneenable(args.sidetoneon)
-    winkeyer.set_mode(swap=args.swap)
+    winkeyer.set_mode(
+        swap=args.swap,
+        contest_spacing=args.contest_spacing,
+        autospace=args.autospace)
     server_type = CwdaemonServerDebug if args.debug else CwdaemonServer
     server = socketserver.UDPServer(
         (_LOCALHOST_ADDRESS, args.port), server_type)
