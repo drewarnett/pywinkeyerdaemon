@@ -136,6 +136,44 @@ class WinKeyer():
         code = wk_sidetone_code(frequency)
         self.port.write((chr(0x01) + chr(code)).encode())
 
+    def set_mode(
+            self,
+            swapped=False,
+            keying_mode='B',
+            contest_spacing=False,
+            autospace=False,
+            ):
+        """set WinkyerMode register which packs a number of things
+
+        swapped:  swap paddles (bool, default False)
+
+        keying mode:  'B' (default), 'A', 'U' (ultimatic), or 'B' (bug)
+
+        contest_spacing:  use contest spacing (bool, default False)
+
+        autospace:  autospace feature (bool, default False)
+        """
+
+        KEYING_CODES = {
+            'B':  0b00,
+            'A':  0b01,
+            'ultimatic':  0b10,
+            'bug':  0b11}
+
+        assert isinstance(swapped, bool), (type(swapped), swapped)
+        assert keying_mode in KEYING_CODES, keying_mode
+        assert isinstance(contest_spacing, bool), (
+            type(contest_spacing), contest_spacing)
+        assert isinstance(autospace, bool), (type(autospace), autospace)
+
+        data = (
+            ((KEYING_CODES[keying_mode] & 0b11) << 4)
+            | ((int(swapped) & 0b1) << 3)
+            | ((int(autospace) & 0b1) << 1)
+            | ((int(contest_spacing) & 0b1) << 0)
+            )
+        self.port.write((chr(0x0E) + chr(data)).encode())
+
 
 def _expand_cwdaemon_prosigns_for_winkeyer(s):
     """returns string with cwdaemon prosigns expanded for winkeyer"""
