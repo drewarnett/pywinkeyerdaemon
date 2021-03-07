@@ -35,9 +35,14 @@ class WinKeyer():
 
     SUPPORTED_VERSIONS = (23, 30)
 
-    def __init__(self, serial_device=None):
+    def __init__(self, serial_device=None, debug=False):
+        self._debug = debug
         self.port = serial.Serial(serial_device, 1200)
         self.host_open()
+
+    def printdbg(self, s):
+        if self._debug:
+            print(s)
 
     def host_open(self):
         self.host_close()
@@ -45,7 +50,7 @@ class WinKeyer():
         self.port.timeout = 1
         self.port.write((chr(0x0) + chr(0x2)).encode())
         version = ord(self.port.read(1).decode())
-        printdbg("host_open returned:  " + str(version))
+        self.printdbg("host_open returned:  " + str(version))
         assert version in self.SUPPORTED_VERSIONS, version
         self.port.timeout = 0.1
         atexit.register(self.host_close)
@@ -114,6 +119,12 @@ def _expand_cwdaemon_prosigns_for_winkeyer(s):
 class CwdaemonServer(socketserver.BaseRequestHandler):
     """singleton cwdaemon using a singleton winkeyer"""
 
+    _debug = False
+
+    def printdbg(self, s):
+        if self._debug:
+            print(s)
+
     def verify_request(self, request, client_address):
         if accept_remote:
             return True
@@ -131,44 +142,47 @@ class CwdaemonServer(socketserver.BaseRequestHandler):
         # NOTE:  some clients send more data than required!
 
         if chr(0) in data:
-            printdbg("Warning:  chr(0) in client message")
+            self.printdbg("Warning:  chr(0) in client message")
             data = data[:data.index(chr(0))]
 
         if data[0] == ESC:
             if data[1] == '0':
-                printdbg("Warning:  'set defaults' not implemented.")
+                self.printdbg("Warning:  'set defaults' not implemented.")
             elif data[1] == '2':
                 speed = data[2:]
-                printdbg("set speed:  {}".format(speed))
+                self.printdbg("set speed:  {}".format(speed))
                 set_speed(int(speed))
                 winkeyer.setspeed(int(speed))
             elif data[1] == '3':
                 tone = data[2:]
-                printdbg("set tone:  {}".format(tone))
-                printdbg(data[2:])
+                self.printdbg("set tone:  {}".format(tone))
+                self.printdbg(data[2:])
             elif data[1] == '4':
-                printdbg("abort message")
+                self.printdbg("abort message")
                 winkeyer.abort()
             elif data[1] == '5':
-                printdbg("Warning:  'exit daemon' not implemented.")
+                self.printdbg("Warning:  'exit daemon' not implemented.")
             elif data[1] == '6':
-                printdbg("Warning:  'set uninterruptible word mode'"
-                         " not implemented.")
+                self.printdbg(
+                    "Warning:  'set uninterruptible word mode'"
+                    " not implemented.")
             elif data[1] == '7':
-                printdbg("Warning:  'set weighting' not implemented.")
+                self.printdbg("Warning:  'set weighting' not implemented.")
             elif data[1] == '8':
-                printdbg("Warning:  'set device for keying' not implemented.")
+                self.printdbg(
+                    "Warning:  'set device for keying' not implemented.")
             elif data[1] == '9':
-                printdbg("Warning:  obsolete cwdaemon command.")
+                self.printdbg("Warning:  obsolete cwdaemon command.")
             elif data[1] == 'a':
                 ptt = data[2:]
                 if ptt not in ("0", "1"):
-                    printdbg(
+                    self.printdbg(
                         "Warning:  "
                         "unsupported value for 'ptt keying off or on'")
                 else:
                     if get_delay() == 0:
-                        printdbg("Cannot set PTT.  PTT disabled by delay = 0.")
+                        self.printdbg(
+                            "Cannot set PTT.  PTT disabled by delay = 0.")
                     else:
                         if ptt == "0":
                             if get_ptt():
@@ -179,22 +193,23 @@ class CwdaemonServer(socketserver.BaseRequestHandler):
                                 winkeyer.ptt(True)
                                 set_ptt(True)
             elif data[1] == 'b':
-                printdbg("Warning:  'ssb signal from microphone or soundcard'"
-                         " not implemented.")
+                self.printdbg(
+                    "Warning:  'ssb signal from microphone or soundcard'"
+                    " not implemented.")
             elif data[1] == 'c':
                 seconds = int(data[2:])
                 if 0 <= seconds <= 99:
                     if seconds:
-                        printdbg("tune for {} seconds".format(seconds))
+                        self.printdbg("tune for {} seconds".format(seconds))
                         if seconds > 10:
-                            printdbg(
+                            self.printdbg(
                                 "allowing longer tune than cwdaemon's"
                                 " 10 second max")
                         winkeyer.tune(seconds)
                     else:
-                        printdbg("tune for 0 seconds ignored")
+                        self.printdbg("tune for 0 seconds ignored")
                 else:
-                    printdbg(
+                    self.printdbg(
                         "tune for {} seconds out of range"
                         " 0 to 99 seconds".format(seconds))
             elif data[1] == 'd':
@@ -203,30 +218,31 @@ class CwdaemonServer(socketserver.BaseRequestHandler):
                 # TODO:  use value for more than enable/disable PTT.
                 #        Probably round and use for winkeyer lead in time.
                 delay = data[2:]
-                printdbg("set delay:  {}".format(delay))
+                self.printdbg("set delay:  {}".format(delay))
                 set_delay(int(delay))
-                printdbg("delay set to:  {:d}".format(get_delay()))
+                self.printdbg("delay set to:  {:d}".format(get_delay()))
             elif data[1] == 'e':
-                printdbg("Warning:  'bandindex' not implemented.")
+                self.printdbg("Warning:  'bandindex' not implemented.")
             elif data[1] == 'f':
-                printdbg("Warning:  'set sound device' not implemented.")
+                self.printdbg("Warning:  'set sound device' not implemented.")
             elif data[1] == 'g':
-                printdbg("Warning:  'set soundcard volume' not implemented.")
+                self.printdbg(
+                    "Warning:  'set soundcard volume' not implemented.")
             elif data[1] == 'h':
-                printdbg("Warning:  'echo when done' not implemented.")
+                self.printdbg("Warning:  'echo when done' not implemented.")
         else:
-            printdbg("message:  {}".format(repr(data)))
+            self.printdbg("message:  {}".format(repr(data)))
             if data.rstrip(WHITESPACE_TO_STRIP) != data:
-                printdbg(
+                self.printdbg(
                     "message trailing whitespace (not including ' ') removed")
                 data = data.rstrip(WHITESPACE_TO_STRIP)
-            printdbg("message:  {}".format(repr(data)))
+            self.printdbg("message:  {}".format(repr(data)))
 
             winkeyer_data = _expand_cwdaemon_prosigns_for_winkeyer(data)
             if winkeyer_data != data:
                 data = winkeyer_data
-                printdbg("prosigns expanded")
-                printdbg("message:  {}".format(repr(data)))
+                self.printdbg("prosigns expanded")
+                self.printdbg("message:  {}".format(repr(data)))
 
             CANCEL_BUFFERED_SPEED_CHANGE = "\x1e"
             BUFFERED_SPEED_CHANGE = "\x1c"
@@ -257,15 +273,22 @@ class CwdaemonServer(socketserver.BaseRequestHandler):
                     # messages won't leave speed modified
                     speed = orig_speed
                     speed_message_data += CANCEL_BUFFERED_SPEED_CHANGE
-                    printdbg("cwdaemon +/- speed controls expanded/translated")
+                    self.printdbg(
+                        "cwdaemon +/- speed controls expanded/translated")
                 else:
-                    printdbg(
+                    self.printdbg(
                         "speed not set, yet,"
                         " so cwdaemon +/- speed controls ignored")
                 data = speed_message_data
-                printdbg("message:  {}".format(repr(data)))
+                self.printdbg("message:  {}".format(repr(data)))
 
             winkeyer.send(data)
+
+
+class CwdaemonServerDebug(CwdaemonServer):
+    """CwdameonServer with debugging enabled"""
+
+    _debug = True
 
 
 if __name__ == "__main__":
@@ -290,12 +313,6 @@ if __name__ == "__main__":
                         action="store_true")
 
     args = parser.parse_args()
-
-    debug = args.debug
-
-    def printdbg(s):
-        if debug:
-            print(s)
 
     state_delay = 0
     state_ptt = False
@@ -328,8 +345,9 @@ if __name__ == "__main__":
     accept_remote = args.accept_remote_hosts
     if accept_remote:
         print("Warning:  listening to nonlocal hosts as well as localhost.")
-    winkeyer = WinKeyer(args.device)
+    winkeyer = WinKeyer(args.device, debug=args.debug)
     winkeyer.sidetoneenable(args.sidetoneon)
+    server_type = CwdaemonServerDebug if args.debug else CwdaemonServer
     server = socketserver.UDPServer(
-        (_LOCALHOST_ADDRESS, args.port), CwdaemonServer)
+        (_LOCALHOST_ADDRESS, args.port), server_type)
     server.serve_forever()
