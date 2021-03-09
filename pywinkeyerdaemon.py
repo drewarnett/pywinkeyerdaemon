@@ -62,6 +62,23 @@ def wk_sidetone_code(freq):
     return WK_SIDETONE_CODES[chosen_freq]
 
 
+WK_ULTIMATIC_PRIORITY_CODES = {
+    'normal':  0b00,
+    'dahs':  0b01,
+    'dits':  0b10
+    }
+
+WK_ULTIMATIC_PRIORITIES = tuple(WK_ULTIMATIC_PRIORITY_CODES)
+
+WK_HANG_TIME_CODES = {
+    1:  0b00,
+    2:  0b01,
+    4:  0b10,
+    8:  0b11}
+
+WK_HANG_TIMES = tuple(sorted(WK_HANG_TIME_CODES))
+
+
 class WinKeyer():
     """singleton handler for a WinKeyer
 
@@ -74,6 +91,12 @@ class WinKeyer():
         self._debug = debug
         self.port = serial.Serial(serial_device, 1200)
         self.host_open()
+        self._sidetone_enable = True
+        self._ptt_enable = False
+        self._ultimatic_priority = 'normal'
+        self._hang_time = 1
+        self._lead_time = 0
+        self._tail_time = 0
 
     def printdbg(self, s):
         if self._debug:
@@ -93,7 +116,7 @@ class WinKeyer():
     def host_close(self):
         self.port.write((chr(0x0) + chr(0x3)).encode())
 
-    def setspeed(self, speed):
+    def set_speed(self, speed):
         assert 0 <= speed <= 99
         self.port.write((chr(0x2) + chr(speed)).encode())
 
@@ -115,17 +138,200 @@ class WinKeyer():
         self.abort()
         self.port.write((chr(0x19) + chr(seconds)).encode())
 
-    def ptt(self, ptt):
+    def set_first_extension(self, extension):
+        """set extension of first keying element
+
+        Note:  not implemented in WK3 v30 firmware.
+
+        extension:  0 to 250 milliseconds (default 0)
+        """
+
+        assert isinstance(extension, int), (type(extension), extension)
+        assert 0 <= extension <= 250, extension
+
+        self.port.write((chr(0x10) + chr(extension)).encode())
+
+    def set_key_compensation(self, compensation):
+        """set key compensation
+
+        extends key time for all elements
+
+        compensation:  0 to 250 milliseconds (default 0)
+        """
+
+        assert isinstance(compensation, int), (
+            type(compensation), compensation)
+        assert 0 <= compensation <= 250, compensation
+
+        self.port.write((chr(0x11) + chr(compensation)).encode())
+
+    def set_weighting(self, weighting):
+        """set weighting for keying
+
+        weighting:  % weighting (int) 10 to 90
+        """
+
+        assert isinstance(weighting, int), (type(weighting), weighting)
+
+        if not 10 <= weighting <= 90:
+            self.printdbg(
+                "weighting value given ({}) out of 10 to 90 % range".format(
+                    weighting))
+        if weighting < 10:
+            weighting = 10
+        if weighting > 90:
+            weighting = 90
+
+        self.port.write((chr(0x03) + chr(weighting)).encode())
+
+    def _set_ptt_lead_tail_time(self, lead_time=None, tail_time=None):
+        """set PTT lead and tail times (in milliseconds)
+
+        lead_time:  PTT assert to key down from 0 to 250 in 10 ms steps (int)
+
+        tail_time:  key up to PTT release from 0 to 250 in 10 ms steps (int)
+        """
+
+        VALID_STEPS = tuple(range(0, 250 + 10, 10))
+
+        if lead_time is not None:
+            assert isinstance(lead_time, int), (type(lead_time), lead_time)
+            assert lead_time in VALID_STEPS, lead_time
+            self._lead_time = lead_time
+        if tail_time is not None:
+            assert isinstance(tail_time, int), (type(tail_time), tail_time)
+            assert tail_time in VALID_STEPS, tail_time
+            self._tail_time = tail_time
+
+        self.port.write((
+            chr(0x04)
+            + chr(self._lead_time//10) + chr(self._tail_time//10)).encode())
+
+    def set_lead_time(self, lead_time):
+        """set lead time
+
+        lead_time:  PTT assert to key down from 0 to 250 in 10 ms steps (int)
+        """
+
+        self._set_ptt_lead_tail_time(lead_time=lead_time)
+
+    def set_tail_time(self, tail_time):
+        """set tail time
+
+        Note:  applies to machine sent code, not hand sent.
+
+        tail_time:  key up to PTT release from 0 to 250 in 10 ms steps (int)
+        """
+
+        self._set_ptt_lead_tail_time(tail_time=tail_time)
+
+    def assert_ptt(self, ptt):
+        """assert PTT
+
+        Note:  buffered.
+
+        Note:  this is manual control of PTT without keying.  See elsewhere
+               for normal, automatic PTT.  Doesn't function if normal,
+               automatic PTT is enabled.
+        """
+
         if ptt:
             self.port.write((chr(0x18) + chr(1)).encode())
         else:
             self.port.write((chr(0x18) + chr(0)).encode())
 
-    def sidetoneenable(self, enable):
-        if enable:
-            self.port.write((chr(0x09) + chr(0b0110)).encode())
-        else:
-            self.port.write((chr(0x09) + chr(0b0100)).encode())
+    def _set_pinconfig(
+            self,
+            sidetone_enable=None,
+            ptt_enable=None,
+            ultimatic_priority=None,
+            hang_time=None):
+        """set pinconfig register
+
+        sidetone_enable:  (bool, default False)
+
+        ptt_enable:  (bool, default False)
+
+        ultimatic_priority:  'normal' (default), 'dits', or 'dahs'
+
+        hang_time:  1 (default), 2, 4, or 8 dits + 1 word space PTT hang time
+        """
+
+        assert isinstance(sidetone_enable, (bool, type(None))), (
+            type(sidetone_enable), sidetone_enable)
+        assert isinstance(ptt_enable, (bool, type(None))), (
+            type(ptt_enable), ptt_enable)
+        assert isinstance(ultimatic_priority, (str, type(None))), (
+            type(ultimatic_priority), ultimatic_priority)
+        assert isinstance(hang_time, (int, type(None))), (
+            type(hang_time), hang_time)
+
+        if sidetone_enable is not None:
+            self._sidetone_enable = sidetone_enable
+
+        if ptt_enable is not None:
+            self._ptt_enable = ptt_enable
+
+        if ultimatic_priority is not None:
+            assert ultimatic_priority in WK_ULTIMATIC_PRIORITIES, (
+                ultimatic_priority)
+            self._ultimatic_priority = ultimatic_priority
+
+        if hang_time is not None:
+            assert hang_time in WK_HANG_TIMES, hang_time
+            self._hang_time = hang_time
+
+        upc = WK_ULTIMATIC_PRIORITY_CODES[self._ultimatic_priority]
+
+        KEY1_ENABLE = True
+        KEY2_ENABLE = False
+
+        # K[12]_ENABLE bit field per example WinKyer USB, not documentation.
+
+        data = (
+            ((upc & 0b11) << 6)
+            | ((WK_HANG_TIME_CODES[self._hang_time] & 0b11) << 4)
+            | ((int(KEY2_ENABLE) & 0b1) << 3)
+            | ((int(KEY1_ENABLE) & 0b1) << 2)
+            | ((int(self._sidetone_enable) & 0b1) << 1)
+            | ((int(self._ptt_enable) & 0b1) << 0))
+
+        self.port.write((chr(0x09) + chr(data)).encode())
+
+    def set_ultimatic_priority(self, ultimatic_priority):
+        """set ultimatic mode priority
+
+        ultimatic_priority:  'normal' (default), 'dits', or 'dahs'
+        """
+
+        self._set_pinconfig(ultimatic_priority=ultimatic_priority)
+
+    def set_hang_time(self, hang_time):
+        """set hang time
+
+        Note:  applies to hand sent code, not machine sent.
+
+        hang_time:  1 (default), 2, 4, 8 dits + 1 word space PTT hang time
+        """
+
+        self._set_pinconfig(hang_time=hang_time)
+
+    def set_ptt_enable(self, enable):
+        """set PTT enable
+
+        Note:  this is automatic PTT that happens during keying.  See elsewhere
+               for manual PTT.
+        """
+
+        if self._ptt_enable:
+            self.printdbg(
+                "Manual PTT doesn't work when normal, automatic PTT is"
+                " enabled.")
+        self._set_pinconfig(ptt_enable=enable)
+
+    def set_sidetone_enable(self, enable):
+        assert isinstance(enable, bool), (type(enable), enable)
+        self._set_pinconfig(sidetone_enable=enable)
 
     def set_sidetone_frequency(self, frequency):
         """set sidetone to nearest frequency supported by WinKeyer
@@ -136,14 +342,13 @@ class WinKeyer():
         code = wk_sidetone_code(frequency)
         self.port.write((chr(0x01) + chr(code)).encode())
 
-    def set_mode(
+    def set_winkeyer_mode(
             self,
             swap=False,
             keying_mode='B',
             contest_spacing=False,
-            autospace=False,
-            ):
-        """set WinkyerMode register which packs a number of things
+            autospace=False):
+        """set WinkeyerMode register which packs a number of things
 
         swap:  swap paddles (swap di and dah) (bool, default False)
 
@@ -198,6 +403,25 @@ def _expand_cwdaemon_prosigns_for_winkeyer(s):
     return rval
 
 
+def winkeyer_weighting(cwdaemon_value):
+    """return cwdaemon weighting valueto WinKeyer weighting
+
+    WinKeyer uses 10 to 90 (int).
+
+    cwdaemon uses -50 to 50 (int).
+
+    TODO:  research what the cwdaemon values mean and alter mapping if
+           appropriate to better mimic cwdaemon.
+    """
+
+    assert isinstance(cwdaemon_value, int), (
+        type(cwdaemon_value), cwdaemon_value)
+    assert -50 <= cwdaemon_value <= 50, cwdaemon_value
+
+    wk_value = int(cwdaemon_value*(90 - 10)/(50 - -50)) + 50
+    return wk_value
+
+
 class CwdaemonServer(socketserver.BaseRequestHandler):
     """singleton cwdaemon using a singleton winkeyer"""
 
@@ -234,7 +458,7 @@ class CwdaemonServer(socketserver.BaseRequestHandler):
                 speed = data[2:]
                 self.printdbg("set speed:  {}".format(speed))
                 set_speed(int(speed))
-                winkeyer.setspeed(int(speed))
+                winkeyer.set_speed(int(speed))
             elif data[1] == '3':
                 tone = data[2:]
                 self.printdbg("set tone:  {}".format(tone))
@@ -244,10 +468,10 @@ class CwdaemonServer(socketserver.BaseRequestHandler):
                     self.printdbg('    but unixcw defines actual range')
                 tone = int(tone)
                 if tone == 0:
-                    winkeyer.sidetoneenable(False)
+                    winkeyer.set_sidetone_enable(False)
                 else:
                     winkeyer.set_sidetone_frequency(tone)
-                    winkeyer.sidetoneenable(True)
+                    winkeyer.set_sidetone_enable(True)
             elif data[1] == '4':
                 self.printdbg("abort message")
                 winkeyer.abort()
@@ -258,7 +482,13 @@ class CwdaemonServer(socketserver.BaseRequestHandler):
                     "Warning:  'set uninterruptible word mode'"
                     " not implemented.")
             elif data[1] == '7':
-                self.printdbg("Warning:  'set weighting' not implemented.")
+                weighting = data[2:]
+                self.printdbg("cwdaemon weighting: ", weighting)
+                weighting = int(weighting)
+                if -50 <= weighting <= 50:
+                    winkeyer.set_weighting(winkeyer_weighting(weighting))
+                else:
+                    self.printdbg("weighting out of range (-50 to 50)")
             elif data[1] == '8':
                 self.printdbg(
                     "Warning:  'set device for keying' not implemented.")
@@ -271,17 +501,18 @@ class CwdaemonServer(socketserver.BaseRequestHandler):
                         "Warning:  "
                         "unsupported value for 'ptt keying off or on'")
                 else:
-                    if get_delay() == 0:
+                    if get_delay() > 0:
                         self.printdbg(
-                            "Cannot set PTT.  PTT disabled by delay = 0.")
+                            "Cannot set PTT.  ptt keying disabled by delay"
+                            " != 0.")
                     else:
                         if ptt == "0":
                             if get_ptt():
-                                winkeyer.ptt(False)
+                                winkeyer.assert_ptt(False)
                                 set_ptt(False)
                         else:
                             if not get_ptt():
-                                winkeyer.ptt(True)
+                                winkeyer.assert_ptt(True)
                                 set_ptt(True)
             elif data[1] == 'b':
                 self.printdbg(
@@ -306,12 +537,15 @@ class CwdaemonServer(socketserver.BaseRequestHandler):
             elif data[1] == 'd':
                 # TODO:  implement range check.  CW daemon uses 0 to 50 and
                 #        truncates into range.
-                # TODO:  use value for more than enable/disable PTT.
-                #        Probably round and use for winkeyer lead in time.
+                # Note:  use 0/nonzero to enable/disable manual PTT
+                # Note:  use 0/nonzero to disable/enable auto PTT?
+                # Note:  Do not want to use to adjust PTT lead time.
                 delay = data[2:]
                 self.printdbg("set delay:  {}".format(delay))
                 set_delay(int(delay))
                 self.printdbg("delay set to:  {:d}".format(get_delay()))
+                self.printdbg(
+                    "have not implemented cwdaemon delay functionality")
             elif data[1] == 'e':
                 self.printdbg("Warning:  'bandindex' not implemented.")
             elif data[1] == 'f':
@@ -400,7 +634,7 @@ if __name__ == "__main__":
         action="store_true")
     sidetone_group = parser.add_mutually_exclusive_group()
     sidetone_group.add_argument(
-        "--sidetoneon",
+        "--sidetone-on",
         help="start with sidetone on (default off) using default frequency",
         action="store_true")
     sidetone_group.add_argument(
@@ -413,16 +647,44 @@ if __name__ == "__main__":
         action="store_true")
     parser.add_argument(
         "--contest_spacing",
-        help="use contest spacing (6 dit wordspace, defaul 7)",
+        help="use contest spacing (6 dit wordspace, default 7)",
         action="store_true")
     parser.add_argument(
         "--autospace",
         help="use autospace paddle sending (default off)",
         action="store_true")
     parser.add_argument(
+        "--first_extension",
+        help="extends first element 0 to 250 milliseconds (default 0)",
+        type=int)
+    parser.add_argument(
+        "--key_compensation",
+        help="extends key time for all elements 0 to 250 milliseconds"
+             " (default 0)",
+        type=int)
+    parser.add_argument(
+        "--ptt_enable",
+        help="enable automatic PTT (default off)",
+        action="store_true")
+    parser.add_argument(
+        "--ptt_lead",
+        help="PTT assert to key down lead time from 0 to 250 in 10 ms steps",
+        type=int)
+    parser.add_argument(
+        "--ptt_tail",
+        help="key up to PTT release tail time from 0 to 250 in 10 ms steps"
+             " Note:  applies to machine sent code only.",
+        type=int)
+    parser.add_argument(
+        "--hang",
+        help="1, 2, 4, or 8 dits + 1 word space PTT hang time (default 1)"
+             " Note:  applies to hand sent code only.",
+        type=int, choices=WK_HANG_TIMES)
+    parser.add_argument(
         "--debug",
         help="print debug statements to standard output",
         action="store_true")
+
     args = parser.parse_args()
 
     state_delay = 0
@@ -459,13 +721,23 @@ if __name__ == "__main__":
     winkeyer = WinKeyer(args.device, debug=args.debug)
     if args.sidetone is not None:
         winkeyer.set_sidetone_frequency(args.sidetone)
-        winkeyer.sidetoneenable(True)
+        winkeyer.set_sidetone_enable(True)
     else:
-        winkeyer.sidetoneenable(args.sidetoneon)
-    winkeyer.set_mode(
+        winkeyer.set_sidetone_enable(args.sidetone_on)
+    winkeyer.set_winkeyer_mode(
         swap=args.swap,
         contest_spacing=args.contest_spacing,
         autospace=args.autospace)
+    if args.key_compensation is not None:
+        winkeyer.set_first_extension(args.key_compensation)
+    if args.first_extension is not None:
+        winkeyer.set_first_extension(args.first_extension)
+    if args.ptt_lead:
+        winkeyer.set_lead_time(args.ptt_lead)
+    if args.ptt_tail:
+        winkeyer.set_tail_time(args.ptt_tail)
+    if args.ptt_enable:
+        winkeyer.set_ptt_enable(True)
     server_type = CwdaemonServerDebug if args.debug else CwdaemonServer
     server = socketserver.UDPServer(
         (_LOCALHOST_ADDRESS, args.port), server_type)
