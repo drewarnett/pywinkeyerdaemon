@@ -42,6 +42,7 @@ WK_SIDETONE_FREQUENCIES = tuple(sorted(WK_SIDETONE_CODES))
 
 
 def wk_sidetone_code(freq):
+
     assert isinstance(freq, int), (type(freq), freq)
     chosen_freq = None
     min_freq = min(WK_SIDETONE_FREQUENCIES)
@@ -78,6 +79,15 @@ WK_HANG_TIME_CODES = {
 
 WK_HANG_TIMES = tuple(sorted(WK_HANG_TIME_CODES))
 
+# K[12]_ENABLE bit field per example WinKyer USB and WK3 documentation  :-)
+WK_PINCONFIG_KEY_BITS = {   # [corrected][key]
+    False:  {
+        1:  2,
+        2:  3},
+    True:  {
+        1:  3,
+        2:  2}}
+
 
 class WinKeyer():
     """singleton handler for a WinKeyer
@@ -87,16 +97,28 @@ class WinKeyer():
 
     SUPPORTED_VERSIONS = (23, 30, 31)
 
-    def __init__(self, serial_device=None, debug=False):
+    def __init__(
+            self,
+            serial_device=None,
+            corrected=False, debug=False, set_pinconfig=True):
+
+        assert isinstance(corrected, bool), (type(corrected), corrected)
+        assert isinstance(debug, bool), (type(debug), debug)
+
+        self._corrected = corrected
         self._debug = debug
         self.port = serial.Serial(serial_device, 1200)
         self.host_open()
         self._sidetone_enable = True
+        self._key1_enable = True
+        self._key2_enable = False
         self._ptt_enable = False
         self._ultimatic_priority = 'normal'
         self._hang_time = 1
         self._lead_time = 0
         self._tail_time = 0
+        if set_pinconfig:
+            self._set_pinconfig()
 
     def printdbg(self, s):
         if self._debug:
@@ -243,6 +265,8 @@ class WinKeyer():
     def _set_pinconfig(
             self,
             sidetone_enable=None,
+            key1_enable=None,
+            key2_enable=None,
             ptt_enable=None,
             ultimatic_priority=None,
             hang_time=None):
@@ -259,6 +283,10 @@ class WinKeyer():
 
         assert isinstance(sidetone_enable, (bool, type(None))), (
             type(sidetone_enable), sidetone_enable)
+        assert isinstance(key1_enable, (bool, type(None))), (
+            type(key1_enable), key1_enable)
+        assert isinstance(key2_enable, (bool, type(None))), (
+            type(key2_enable), key2_enable)
         assert isinstance(ptt_enable, (bool, type(None))), (
             type(ptt_enable), ptt_enable)
         assert isinstance(ultimatic_priority, (str, type(None))), (
@@ -268,6 +296,12 @@ class WinKeyer():
 
         if sidetone_enable is not None:
             self._sidetone_enable = sidetone_enable
+
+        if key1_enable is not None:
+            self._key1_enable = key1_enable
+
+        if key2_enable is not None:
+            self._key2_enable = key2_enable
 
         if ptt_enable is not None:
             self._ptt_enable = ptt_enable
@@ -283,20 +317,28 @@ class WinKeyer():
 
         upc = WK_ULTIMATIC_PRIORITY_CODES[self._ultimatic_priority]
 
-        KEY1_ENABLE = True
-        KEY2_ENABLE = False
-
-        # K[12]_ENABLE bit field per example WinKyer USB, not documentation.
+        key1_enable_bit = WK_PINCONFIG_KEY_BITS[self._corrected][1]
+        key2_enable_bit = WK_PINCONFIG_KEY_BITS[self._corrected][2]
 
         data = (
             ((upc & 0b11) << 6)
             | ((WK_HANG_TIME_CODES[self._hang_time] & 0b11) << 4)
-            | ((int(KEY2_ENABLE) & 0b1) << 3)
-            | ((int(KEY1_ENABLE) & 0b1) << 2)
+            | ((int(self._key2_enable) & 0b1) << key2_enable_bit)
+            | ((int(self._key1_enable) & 0b1) << key1_enable_bit)
             | ((int(self._sidetone_enable) & 0b1) << 1)
             | ((int(self._ptt_enable) & 0b1) << 0))
 
         self.port.write((chr(0x09) + chr(data)).encode())
+
+    def set_key1_enable(self, enable):
+        """set key 1 enable"""
+
+        self._set_pinconfig(key1_enable=enable)
+
+    def set_key2_enable(self, enable):
+        """set key 2 enable"""
+
+        self._set_pinconfig(key2_enable=enable)
 
     def set_ultimatic_priority(self, ultimatic_priority):
         """set ultimatic mode priority
@@ -645,6 +687,15 @@ if __name__ == "__main__":
         "--swap",
         help="swap paddles (swap di and dah) (default off)",
         action="store_true")
+    key_group = parser.add_mutually_exclusive_group()
+    key_group.add_argument(
+        "--key2",
+        help="use KEY2 output instead of default KEY1",
+        action="store_true")
+    key_group.add_argument(
+        "--key12",
+        help="use KEY1 and KEY2 output instead of default KEY1",
+        action="store_true")
     parser.add_argument(
         "--contest_spacing",
         help="use contest spacing (6 dit wordspace, default 7)",
@@ -719,6 +770,15 @@ if __name__ == "__main__":
     if accept_remote:
         print("Warning:  listening to nonlocal hosts as well as localhost.")
     winkeyer = WinKeyer(args.device, debug=args.debug)
+
+    assert not hasattr(args, 'key1') and hasattr(args, 'key12')
+    if args.key2:
+        winkeyer.set_key1_enable(False)
+        winkeyer.set_key2_enable(True)
+    if args.key12:
+        winkeyer.set_key1_enable(True)
+        winkeyer.set_key2_enable(True)
+
     if args.sidetone is not None:
         winkeyer.set_sidetone_frequency(args.sidetone)
         winkeyer.set_sidetone_enable(True)
