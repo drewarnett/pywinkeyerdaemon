@@ -29,20 +29,20 @@ support the cwdaemon protocol.  It isn't popular on MS Windows.  Yet.  :-)
 
 On unix:
 
-    `python3 pywinkeyerdaemon.py [arguments...]`
+    `python3 winkeyerdaemon.py [arguments...]`
 
 or if given executable permissions:
 
-    `pywinkeyerdaemon.py [arguments...]`.
+    `winkeyerdaemon.py [arguments...]`.
 
 On MS Windows the Python3 installer includes the Python Launcher for Windows
 (py.exe) and associates it to .py files.  So:
 
-    `pywinkeyerdaemon.py [arguments...]`
+    `winkeyerdaemon.py [arguments...]`
 
 or alternatively:
 
-    `py -3 pywinkeyerdaemon.py [arguments...]`.
+    `py -3 winkeyerdaemon.py [arguments...]`.
 
 Use -h or --help to get full description of command line arguments.  Some are
 mandatory.  At the least, the serial port device must be provided.

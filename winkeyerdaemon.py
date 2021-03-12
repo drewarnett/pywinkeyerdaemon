@@ -3,7 +3,7 @@
 """
 pywinkeyerdaemon
 
-Use "pywinkeyerdaemon --help" for help.
+Use "winkeyerdaemon --help" for help.
 
 Just like cwdaemon, this listens for UDP messages.  However, it supports
 winkeyer or winkeyer compatible keyer hardware only.
