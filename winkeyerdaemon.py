@@ -525,7 +525,7 @@ class CwdaemonServer(socketserver.BaseRequestHandler):
                     " not implemented.")
             elif data[1] == '7':
                 weighting = data[2:]
-                self.printdbg("cwdaemon weighting: ", weighting)
+                self.printdbg("cwdaemon weighting:  {}".format(weighting))
                 weighting = int(weighting)
                 if -50 <= weighting <= 50:
                     winkeyer.set_weighting(winkeyer_weighting(weighting))
