@@ -128,6 +128,7 @@ command to build the prosigns for WinKeyer.  Per cwdaemon docs these are:
 ## Thanks to:
 
 * Jeno Vago, HA5SE, for ideas and asking for features and trying things out.
+* Ed Dout, W3NR, for bug reports.
 
 
 ## references
